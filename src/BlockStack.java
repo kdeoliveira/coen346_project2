@@ -1,3 +1,5 @@
+import exception.StackOutOfBoundExcepetion;
+
 /**
  * Class BlockStack
  * Implements character block stack and operations upon it.
@@ -14,29 +16,37 @@ class BlockStack
 	/**
 	 * # of letters in the English alphabet + 2
 	 */
-	public static final int MAX_SIZE = 28;
+	private static final int MAX_SIZE = 28;
 
 	/**
 	 * Default stack size
 	 */
-	public static final int DEFAULT_SIZE = 6;
+	private static final int DEFAULT_SIZE = 6;
+
+	/** 
+	 * Default representation of non defined value on stack
+	*/
+	private char defaultEmpty = '*';
 
 	/**
 	 * Current size of the stack
 	 */
-	public int iSize = DEFAULT_SIZE;
+	private int iSize = DEFAULT_SIZE;
 
 	/**
 	 * Current top of the stack
 	 */
-	public int iTop  = 3;
+	private int iTop  = 3;
 
+	/**
+	 * Current number of access on stack
+	 */
 	private int stackAccessCounter = 0;
 
 	/**
 	 * stack[0:5] with four defined values
 	 */
-	public char acStack[] = new char[] {'a', 'b', 'c', 'd', '$', '$'};
+	private char acStack[] = new char[] {'a', 'b', 'c', 'd', '$', '$'};
 
 	/**
 	 * Default constructor
@@ -75,7 +85,7 @@ class BlockStack
 	public char pick()
 	{
 		this.stackAccessCounter++;
-		return this.acStack[this.iTop];
+		return this.checkUndefinedChar(this.acStack[this.iTop]);
 	}
 
 	/**
@@ -85,7 +95,7 @@ class BlockStack
 	public char getAt(final int piPosition)
 	{
 		this.stackAccessCounter++;
-		return this.acStack[piPosition];
+		return this.checkUndefinedChar(acStack[piPosition]);
 	}
 
 	public int getITop()
@@ -111,13 +121,10 @@ class BlockStack
 	/**
 	 * Standard push operation
 	 */
-	public void push(final char pcBlock)
+	public void push(final char pcBlock) throws StackOutOfBoundExcepetion
 	{
-		if(this.iTop == this.iSize)				return;
-
-		if(this.isEmpty())
-			this.acStack[++this.iTop] = 'a';
-		
+		if(this.iTop == this.iSize)				throw new StackOutOfBoundExcepetion();
+	
 		this.acStack[++this.iTop] = pcBlock;
 		
 		this.stackAccessCounter++;
@@ -128,14 +135,21 @@ class BlockStack
 	 * Standard pop operation
 	 * @return ex-top element of the stack, char
 	 */
-	public char pop()
+	public char pop() throws StackOutOfBoundExcepetion
 	{
-		if(this.isEmpty())			return '*';
+		if(this.isEmpty())			throw new StackOutOfBoundExcepetion();
+
 		char cBlock = this.acStack[this.iTop];
 		this.acStack[this.iTop--] = '$'; // Leave prev. value undefined
 		this.stackAccessCounter++;
 		System.out.println("pop on stack");
-		return cBlock;
+
+		return checkUndefinedChar(cBlock);
+	}
+
+	private char checkUndefinedChar(char ch){
+		if(ch == '$')			return defaultEmpty;
+		else					return ch;
 	}
 }
 

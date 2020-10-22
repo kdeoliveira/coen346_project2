@@ -1,4 +1,6 @@
 // Import (aka include) some stuff.
+import java.sql.Time;
+
 import common.*;
 
 /**
@@ -29,10 +31,12 @@ public class BlockManager
 	 */
 	private static int siThreadSteps = 5;
 
+	private static int numberThreads = 3;
+
 	/**
 	 * For atomicity
 	 */
-	//private static Semaphore mutex = new Semaphore(...);
+	private static Semaphore mutex = new Semaphore(1);
 
 	/*
 	 * For synchronization
@@ -41,20 +45,19 @@ public class BlockManager
 	/**
 	 * s1 is to make sure phase I for all is done before any phase II begins
 	 */
-	//private static Semaphore s1 = new Semaphore(...);
+	private static Semaphore s1 = new Semaphore(-1);
 
 	/**
-	 * s2 is for use in conjunction with Thread.turnTestAndSet() for phase II proceed
-	 * in the thread creation order
+	 * s2 is for use in conjunction with Thread.turnTestAndSet() for phase II
+	 * proceed in the thread creation order
 	 */
-	//private static Semaphore s2 = new Semaphore(...);
+	private static Semaphore s2 = new Semaphore(-2);
 
+	private static Semaphore s3 = new Semaphore(-2);
 
 	// The main()
-	public static void main(String[] argv)
-	{
-		try
-		{
+	public static void main(String[] argv) {
+		try {
 			// Some initial stats...
 			System.out.println("Main thread starts executing.");
 			System.out.println("Initial value of top = " + soStack.getITop() + ".");
@@ -77,10 +80,10 @@ public class BlockManager
 			System.out.println("main(): Three ReleaseBlock threads have been created.");
 
 			// Create an array object first
-			CharStackProber	aStackProbers[] = new CharStackProber[NUM_PROBERS];
+			CharStackProber aStackProbers[] = new CharStackProber[NUM_PROBERS];
 
 			// Then the CharStackProber objects
-			for(int i = 0; i < NUM_PROBERS; i++)
+			for (int i = 0; i < NUM_PROBERS; i++)
 				aStackProbers[i] = new CharStackProber();
 
 			System.out.println("main(): CharStackProber threads have been created: " + NUM_PROBERS);
@@ -112,7 +115,7 @@ public class BlockManager
 			rb2.join();
 			rb3.join();
 
-			for(int i = 0; i < NUM_PROBERS; i++)
+			for (int i = 0; i < NUM_PROBERS; i++)
 				aStackProbers[i].join();
 
 			// Some final stats after all the child threads terminated...
@@ -123,41 +126,43 @@ public class BlockManager
 			System.out.println("Stack access count = " + soStack.getAccessCounter());
 
 			System.exit(0);
-		}
-		catch(InterruptedException e)
-		{
+		} catch (InterruptedException e) {
 			System.err.println("Caught InterruptedException (internal error): " + e.getMessage());
 			e.printStackTrace(System.err);
-		}
-		catch(Exception e)
-		{
+		} catch (Exception e) {
 			reportException(e);
-		}
-		finally
-		{
+		} finally {
 			System.exit(1);
 		}
 	} // main()
 
+	
 
 	/**
 	 * Inner AcquireBlock thread class.
 	 */
-	static class AcquireBlock extends BaseThread
-	{
+	static class AcquireBlock extends BaseThread {
 		/**
 		 * A copy of a block returned by pop().
-                 * @see BlocStack#pop()
+		 * 
+		 * @see BlocStack#pop()
 		 */
 		private char cCopy;
 
-		@Override
-		public void run()
-		{
+		public void run() {
 			System.out.println("AcquireBlock thread [TID=" + this.iTID + "] starts executing.");
 
-
 			phase1();
+
+			System.out.printf("\u001B[31mThread-%s has finished PHASE I of %s%n\u001B[0m", this.iTID,
+					this.getClass().getName());
+		
+			if(BlockManager.numberThreads <= 1){
+				System.out.printf("\u001B[31m All threads have finished PHASE I%n\u001B[0m");
+			}
+			BlockManager.numberThreads--;
+
+			mutex.P();
 
 
 			try
@@ -190,11 +195,21 @@ public class BlockManager
 				reportException(e);
 				System.exit(1);
 			}
+			mutex.V();
+			
+			
+			
+			s1.P();
+			
 
+			System.out.printf("\u001B[31mThread-%s PASSED TO PHASE II ON AcquireBlock()%n\u001B[0m", this.iTID);
+			while(!turnTestAndSet());
 			phase2();
+			s2.V();
 
-
+						
 			System.out.println("AcquireBlock thread [TID=" + this.iTID + "] terminates.");
+			
 		}
 	} // class AcquireBlock
 
@@ -211,12 +226,19 @@ public class BlockManager
 
 		public void run()
 		{
+			
 			System.out.println("ReleaseBlock thread [TID=" + this.iTID + "] starts executing.");
 
-
+			
 			phase1();
+			
+			System.out.printf("\u001B[31mThread-%s has finished PHASE I of %s%n\u001B[0m", this.iTID,
+			this.getClass().getName());		
+			
+			
+			mutex.P();
 
-
+			
 			try
 			{
 				if(soStack.isEmpty() == false)
@@ -248,12 +270,22 @@ public class BlockManager
 				reportException(e);
 				System.exit(1);
 			}
+			mutex.V();
+			
+			
+			s1.V();
+			System.out.printf("\u001B[31mThread-%s ABOUT TO BLOCK IN PHASE II ON ReleaseBlock()%n\u001B[0m", this.iTID);
 
+			s2.P();
 
+			System.out.printf("\u001B[31mThread-%s PASSED TO PHASE II ON ReleaseBlock()%n\u001B[0m", this.iTID);
+			while(!turnTestAndSet());
 			phase2();
-
-
+			s2.V();
+			s3.V();
+			
 			System.out.println("ReleaseBlock thread [TID=" + this.iTID + "] terminates.");
+
 		}
 	} // class ReleaseBlock
 
@@ -265,8 +297,12 @@ public class BlockManager
 	{
 		public void run()
 		{
+			
 			phase1();
-
+			
+			System.out.printf("\u001B[31mThread-%s has finished PHASE I of %s%n\u001B[0m", this.iTID, this.getClass().getName());
+			
+			mutex.P();
 
 			try
 			{
@@ -285,7 +321,6 @@ public class BlockManager
 						);
 
 					System.out.println(".");
-
 				}
 			}
 			catch(Exception e)
@@ -293,10 +328,19 @@ public class BlockManager
 				reportException(e);
 				System.exit(1);
 			}
+			mutex.V();
+			
+			s1.V();
 
+			System.out.printf("\u001B[31mThread-%s ABOUT TO BLOCK ON CharStackPober()%n\u001B[0m", this.iTID);
 
+			s3.P();
+			System.out.printf("\u001B[31mThread-%s PASSED TO PHASE II ON CharStackCounter()%n\u001B[0m", this.iTID);
+			while(!turnTestAndSet()){
+				s3.V();
+			}
 			phase2();
-
+			s3.V();
 		}
 	} // class CharStackProber
 

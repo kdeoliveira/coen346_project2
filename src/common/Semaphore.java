@@ -75,8 +75,8 @@ public class Semaphore
 			{
 				wait();
 			}
-
 			this.iValue--;
+
 		}
 		catch(InterruptedException e)
 		{
@@ -85,8 +85,7 @@ public class Semaphore
 				"Semaphore::Wait() - caught InterruptedException: " +
 				e.getMessage()
 			);
-			
-			Thread.currentThread().interrupt();
+
 			e.printStackTrace();
 		}
 	}
@@ -101,7 +100,7 @@ public class Semaphore
 	public synchronized void Signal()
 	{
 		++this.iValue;
-		notify();
+		notifyAll();
 	}
 
 	/**
@@ -118,6 +117,11 @@ public class Semaphore
 	public synchronized void V()
 	{
 		this.Signal();
+	}
+
+	public int getIValue()
+	{
+		return this.iValue;
 	}
 }
 
