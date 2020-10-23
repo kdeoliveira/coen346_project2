@@ -1,6 +1,4 @@
 // Import (aka include) some stuff.
-import java.sql.Time;
-
 import common.*;
 
 /**
@@ -31,6 +29,9 @@ public class BlockManager
 	 */
 	private static int siThreadSteps = 5;
 
+	/**
+	 * Number of threads in AcquireBlock
+	 */
 	private static int numberThreads = 3;
 
 	/**
@@ -51,8 +52,11 @@ public class BlockManager
 	 * s2 is for use in conjunction with Thread.turnTestAndSet() for phase II
 	 * proceed in the thread creation order
 	 */
-	private static Semaphore s2 = new Semaphore(-2);
+	private static Semaphore s2 = new Semaphore(-1);
 
+	/**
+	 * s3 controls flow of threads to phase II
+	 */
 	private static Semaphore s3 = new Semaphore(-2);
 
 	// The main()
@@ -156,15 +160,16 @@ public class BlockManager
 
 			System.out.printf("\u001B[31mThread-%s has finished PHASE I of %s%n\u001B[0m", this.iTID,
 					this.getClass().getName());
-		
+
+			//Checks if all threads have passed through phase I
 			if(BlockManager.numberThreads <= 1){
 				System.out.printf("\u001B[31m All threads have finished PHASE I%n\u001B[0m");
 			}
-			BlockManager.numberThreads--;
+			
+			BlockManager.numberThreads--;	//Decrements at each pass
 
+			//Binary semaphore initialized to 1
 			mutex.P();
-
-
 			try
 			{
 				System.out.println("AcquireBlock thread [TID=" + this.iTID + "] requests Ms block.");
@@ -198,15 +203,17 @@ public class BlockManager
 			mutex.V();
 			
 			
-			
+			//Controls phase I flow
 			s1.P();
 			
-
-			System.out.printf("\u001B[31mThread-%s PASSED TO PHASE II ON AcquireBlock()%n\u001B[0m", this.iTID);
-			while(!turnTestAndSet());
+			//Verifies if is in correct order
+			while(!turnTestAndSet())
+			{
+				System.out.printf("\u001B[31mThread-%s has attempted to enter PHASE II\r\u001B[0m", this.iTID);
+			}
 			phase2();
+			//Signals next set of threads
 			s2.V();
-
 						
 			System.out.println("AcquireBlock thread [TID=" + this.iTID + "] terminates.");
 			
@@ -223,7 +230,8 @@ public class BlockManager
 		 * Block to be returned. Default is 'a' if the stack is empty.
 		 */
 		private char cBlock = 'a';
-
+		
+		
 		public void run()
 		{
 			
@@ -231,14 +239,12 @@ public class BlockManager
 
 			
 			phase1();
-			
+			//Thread has passed phase I
 			System.out.printf("\u001B[31mThread-%s has finished PHASE I of %s%n\u001B[0m", this.iTID,
 			this.getClass().getName());		
 			
-			
+			//Mutex for critical section			
 			mutex.P();
-
-			
 			try
 			{
 				if(soStack.isEmpty() == false)
@@ -274,12 +280,15 @@ public class BlockManager
 			
 			
 			s1.V();
-			System.out.printf("\u001B[31mThread-%s ABOUT TO BLOCK IN PHASE II ON ReleaseBlock()%n\u001B[0m", this.iTID);
-
+			//Controls flow to phase II
 			s2.P();
 
-			System.out.printf("\u001B[31mThread-%s PASSED TO PHASE II ON ReleaseBlock()%n\u001B[0m", this.iTID);
-			while(!turnTestAndSet());
+			//Checks if it's thread turns
+			while(!turnTestAndSet()){
+				System.out.printf("\u001B[31mThread-%s has attempted to enter PHASE II\r\u001B[0m", this.iTID);
+				s2.V();
+				s2.P();
+			}
 			phase2();
 			s2.V();
 			s3.V();
@@ -299,11 +308,11 @@ public class BlockManager
 		{
 			
 			phase1();
-			
+			//Thread has passed phase I
 			System.out.printf("\u001B[31mThread-%s has finished PHASE I of %s%n\u001B[0m", this.iTID, this.getClass().getName());
 			
+			//Mutex for critical section
 			mutex.P();
-
 			try
 			{
 				for(int i = 0; i < siThreadSteps; i++)
@@ -332,12 +341,14 @@ public class BlockManager
 			
 			s1.V();
 
-			System.out.printf("\u001B[31mThread-%s ABOUT TO BLOCK ON CharStackPober()%n\u001B[0m", this.iTID);
-
+			//Controls flow to phase II
 			s3.P();
-			System.out.printf("\u001B[31mThread-%s PASSED TO PHASE II ON CharStackCounter()%n\u001B[0m", this.iTID);
-			while(!turnTestAndSet()){
+			//Checks if it's thread turns
+			while(!turnTestAndSet())
+			{
+				System.out.printf("\u001B[31mThread-%s has attempted to enter PHASE II\r\u001B[0m", this.iTID);
 				s3.V();
+				s3.P();
 			}
 			phase2();
 			s3.V();

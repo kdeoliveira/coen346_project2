@@ -98,21 +98,37 @@ class BlockStack
 		return this.checkUndefinedChar(acStack[piPosition]);
 	}
 
+	/**
+	 * Return the current value of iTop
+	 * @return the iTop value
+	 */
 	public int getITop()
 	{
 		return this.iTop;
 	}
 
+	/**
+	 * Return the size of the stack
+	 * @return iSize value
+	 */
 	public int getISize()
 	{
 		return this.iSize;
 	}
 
+	/**
+	 * Checks if stack is empty
+	 * @return true if stack is empty, false otherwise
+	 */
 	public boolean isEmpty()
 	{
 		return this.iTop == -1;
 	}
 
+	/**
+	 * Return the amount of accesses made on the stack (pushes and pops)
+	 * @return the access counter
+	 */
 	public int getAccessCounter()
 	{
 		return this.stackAccessCounter;
@@ -120,33 +136,41 @@ class BlockStack
 
 	/**
 	 * Standard push operation
+	 * @param pcBlock
+	 * @throws StackOutOfBoundExcepetion if stack is already full
 	 */
 	public void push(final char pcBlock) throws StackOutOfBoundExcepetion
 	{
-		if(this.iTop == this.iSize)				throw new StackOutOfBoundExcepetion();
+		if(this.iTop == this.iSize - 1)				throw new StackOutOfBoundExcepetion("Stack is full");
 	
 		this.acStack[++this.iTop] = pcBlock;
-		
-		this.stackAccessCounter++;
+
+		this.stackAccessCounter++;				// Increment access counter
 		System.out.println("push on stack");
 	}
 
 	/**
 	 * Standard pop operation
-	 * @return ex-top element of the stack, char
+	 * @return the character popped 
+	 * @throws StackOutOfBoundExcepetion if stack is already empty
 	 */
 	public char pop() throws StackOutOfBoundExcepetion
 	{
-		if(this.isEmpty())			throw new StackOutOfBoundExcepetion();
+		if(this.isEmpty())			throw new StackOutOfBoundExcepetion("Stack is empty");
 
 		char cBlock = this.acStack[this.iTop];
 		this.acStack[this.iTop--] = '$'; // Leave prev. value undefined
-		this.stackAccessCounter++;
+		this.stackAccessCounter++;		 // Increment access counter
 		System.out.println("pop on stack");
 
-		return checkUndefinedChar(cBlock);
+		return checkUndefinedChar(cBlock);	//Verifies for defined char value
 	}
 
+	/**
+	 * Checks if undefined value is present
+	 * @param ch
+	 * @return defined char
+	 */
 	private char checkUndefinedChar(char ch){
 		if(ch == '$')			return defaultEmpty;
 		else					return ch;
